@@ -1,0 +1,98 @@
+import requests
+from bs4 import BeautifulSoup
+import re
+headers = { 'User-Agent' : 'Mozilla/5.0 (compatible; MSIE 5.5; Windows NT)'}
+
+
+regnam=['甘井子','沙河口','中山','西岗','高新园']
+for regnum in range(len(regnam)):
+    for page in range(1,11):
+         region=['ganjingzi','shahekou','zhongshan','xigang','gaoxinyuan']
+         print('开始抓'+regnam[regnum]+'区的第'+ str(page) +'页房产信息，每页大概有30条信息')
+         r=requests.get('https://dl.lianjia.com/ershoufang/'+region[regnum]+'/pg'+str(page),headers,timeout=20)
+         r.encoding=r.apparent_encoding
+         demo=r.text
+         soup=BeautifulSoup(demo,'html.parser')
+         totalprice = soup.find_all('div','totalPrice')
+         unitprice = soup.find_all('div','unitPrice')
+         houseinfo = soup.find_all('div','houseInfo')
+         for i in range(0,len(totalprice)):
+            price = []
+            uprice = []
+            house = []
+            position = []
+            price.insert(i,float(totalprice[i].text[:-1]))
+            uprice.insert(i,float(unitprice[i].text[2:-4]))
+            house.insert(i,houseinfo[i].text)
+            r=requests.get(houseinfo[i].find('a').get('href'),headers,timeout=20)
+            findpos=BeautifulSoup(r.text,'html.parser')
+            pos= re.findall(r'resblockPosition:\'[\d\.\,]*',str(findpos))
+            position.insert(i,pos[0][18:-1])
+            print('抓到第'+ str(i+1)+ '条信息')
+            with open(region[regnum]+'.txt','a',encoding="utf-8") as f:
+              for i in range(len(price)):
+                 f.write(str(price[i]) + ',' + str(uprice[i]) + ',' + str(house[i]) + ',' + str(position[i])+'\r\n')
+                 print('抓完了,保存到'+region[regnum]+'.txt里面了')
+
+                 import matplotlib.pyplot as plt
+                 import numpy as np
+                 import importlib
+                 import sys
+                 importlib.reload(sys)
+
+                 price=[[],[],[],[],[]]
+                 uprice=[[],[],[],[],[]]
+                 house=[[],[],[],[],[]]
+                 gpsx=[[],[],[],[],[]]
+                 gpsy=[[],[],[],[],[]]
+                 average_price=[0,0,0,0,0]
+                 max_price=[0,0,0,0,0]
+                 min_price=[0,0,0,0,0]
+
+                 regnam=['甘井子', '沙河口', '中山', '西岗', '高新园']
+                 for regnum in range(len(regnam)):
+                     region=['ganjingzi', 'shahekou', 'zhongshan', 'xigang', 'gaoxinyuan']
+                     with open(region[regnum]+'.txt','r',encoding="utf-8") as f:
+                      fd=f.readlines()
+                     for i in range(len(fd)):
+                         tmp=fd[i].split(',')
+                         price[regnum].insert(i,float(tmp[0]))
+                         uprice[regnum].insert(i,float(tmp[1]))
+                         house[regnum].insert(i,tmp[2])
+                         gpsx[regnum].insert(i,float(tmp[3]))
+                         gpsy[regnum].insert(i,float(tmp[4]))
+                     max_price[regnum]=max(price[regnum][:])
+                     average_price[regnum]= np.mean(price[regnum][:])
+                     min_price[regnum]=min(price[regnum][:])
+                     print(regnam[regnum]+'区的房价最高的房子是'+ str(max_price[regnum])+'万元，地点是：'+house[regnum][price[regnum][:].index(max_price[regnum])])
+                     print(regnam[regnum]+'区的房价最低的房子是'+ str(min_price[regnum])+'万元，地点是:'+house[regnum][price[regnum][:].index(min_price[regnum])])
+                     print(regnam[regnum]+'区的房屋平均价是'+ str(average_price[regnum])+'万元')
+
+
+                 plt.figure(1)
+                 plt.title('Most expensive house in Dalian',fontsize=15,color='r')
+                 plt.bar(range(5), max_price,tick_label=region,color='rygbk')
+
+                 plt.figure(2)
+                 plt.title('Highest average price in Dalian',fontsize=15,color='r')
+                 plt.bar(range(5), average_price,tick_label=region,color='rygbk')
+
+                 plt.figure(3)
+                 plt.title('Lowest price in Dalian',fontsize=15,color='r')
+                 plt.bar(range(5), min_price, tick_label=region, color='rygbk')
+                 plt.show()
+
+                 im=plt.imread('map.png')
+                 plt.figure(4)
+                 line1x=[121.722382,121.671789,121.637726,121.594607,121.577934,121.53999,121.550051]
+                 line1y=[38.917269,38.934447,38.922658,38.919065,38.919402,38.933661,38.962507]
+                 line2x=[121.520587,121.554075,121.590295,121.600069,121.582103,121.586702,121.592882,121.625509]
+                 line2y=[38.849525,38.882001,38.890876,38.933773,38.948254,38.962956,39.009062,39.024536]
+                 plt.title('House price heatmap of Dalian',fontsize=15,color='r')
+                 plt.scatter(gpsx[regnum],gpsy[regnum],c=uprice[regnum],s=price[regnum],vmin=10000, vmax=30000,alpha=0.3,cmap=plt.cm.get_cmap('RdYlBu_r'))
+                 plt.plot(line1x,line1y,'b')
+                 plt.plot(line2x,line2y,'g')
+                 plt.colorbar()
+                 plt.imshow(im,extent=[121.501183,121.752134,38.856943,39.028909],alpha=0.3)
+                 plt.axis('equal')
+                 plt.show()
